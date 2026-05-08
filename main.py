@@ -109,16 +109,21 @@ async def history():
     with open(LOG_FILE, "r", encoding="utf-8") as f: return json.load(f)
 
 def extract_json(text):
-    """Mencari dan mengekstrak objek JSON pertama yang lengkap dari teks."""
+    """Mencari dan mengekstrak objek JSON pertama dari teks."""
     start = text.find('{')
     if start == -1: return None
+    
+    # Cuba cari kurungan sepadan
     count = 0
     for i in range(start, len(text)):
         if text[i] == '{': count += 1
         elif text[i] == '}': count -= 1
         if count == 0:
             return text[start:i+1]
-    return None
+            
+    # Jika gagal sepadan (mungkin truncated), ambil sahaja hingga akhir
+    # dan cuba tambah penutup } jika perlu
+    return text[start:].strip()
 
 @app.post("/api/execute")
 async def execute(data: UserInput, background_tasks: BackgroundTasks):
