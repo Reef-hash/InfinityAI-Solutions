@@ -130,7 +130,7 @@ async def execute(data: UserInput, background_tasks: BackgroundTasks):
         
         json_str = extract_json(claudia_out.replace("```json", "").replace("```", "").strip())
         if not json_str:
-            return {"status": "error", "message": "Claudia gagal memproses arahan."}
+            return {"status": "error", "message": f"Claudia membalas tanpa JSON: {claudia_out[:100]}..."}
             
         decision = json.loads(json_str)
         
