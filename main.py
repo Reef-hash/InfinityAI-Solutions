@@ -93,10 +93,19 @@ def add_json_log(agent, model, status, duration):
 def call_nvidia(sys_p, usr_p, model, temp=0.7):
     start = time.time()
     try:
+        # Konfigurasi khusus untuk model Kimi (Thinking Model)
+        extra_args = {}
+        tokens = 4096
+        if "kimi" in model.lower():
+            extra_args["extra_body"] = {"chat_template_kwargs": {"thinking": True}}
+            tokens = 16384 # Kimi sokong token lebih tinggi
+            
         resp = client.chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": sys_p}, {"role": "user", "content": usr_p}],
-            temperature=temp, max_tokens=4096
+            temperature=temp, 
+            max_tokens=tokens,
+            **extra_args
         )
         return resp.choices[0].message.content, time.time() - start
     except Exception as e:
