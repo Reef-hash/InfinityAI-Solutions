@@ -137,18 +137,34 @@ async def execute(data: UserInput, background_tasks: BackgroundTasks):
             return {"status": "error", "message": f"Claudia membalas tanpa JSON: {claudia_out[:100]}..."}
             
         try:
-            # Bersihkan JSON dari baris baru yang tidak sah dalam string
-            cleaned_json = json_str.replace('\n', '\\n').replace('\r', '\\r')
-            decision = json.loads(cleaned_json) 
-        except json.JSONDecodeError:
-            # Cuba cara agresif jika cara biasa gagal
+            # Cara 1: Bersihkan watak kawalan (control characters)
+            import re
+            # Buang watak kawalan kecuali tab, newline, dsb
+            cleaned = "".join(ch for ch in json_str if ch.isprintable() or ch in '\n\r\t')
+            # Tukar newline kepada literal \n untuk json.loads
+            cleaned = cleaned.replace('\n', '\\n').replace('\r', '\\r')
+            decision = json.loads(cleaned)
+        except Exception:
             try:
+                # Cara 2: Cuba regex untuk ambil field utama jika JSON hancur
                 import re
-                # Cari string di antara " " dan tukar newline di dalamnya
-                fixed_json = re.sub(r'(?<=[:[,])\s*"(.*?)"', lambda m: m.group(0).replace('\n', '\\n'), json_str, flags=re.DOTALL)
-                decision = json.loads(fixed_json)
+                status_match = re.search(r'"status":\s*"(\w+)"', json_str)
+                status = status_match.group(1) if status_match else "error"
+                
+                if status == "rejected":
+                    reason_match = re.search(r'"reason":\s*"(.*?)"', json_str, re.DOTALL)
+                    reason = reason_match.group(1) if reason_match else "Tugas ditolak."
+                    decision = {"status": "rejected", "reason": reason}
+                else:
+                    # Ambil assignments secara manual
+                    assignments = []
+                    agents = re.findall(r'"agent":\s*"(\w+)"', json_str)
+                    tasks = re.findall(r'"task":\s*"(.*?)"', json_str, re.DOTALL)
+                    for a, t in zip(agents, tasks):
+                        assignments.append({"agent": a, "task": t})
+                    decision = {"status": "accepted", "assignments": assignments}
             except:
-                return {"status": "error", "message": f"Ralat Struktur JSON: {json_str[:100]}..."}
+                return {"status": "error", "message": f"Kegagalan Total JSON: {json_str[:100]}..."}
         
         # Handle Rejection
         if decision.get("status") == "rejected":
