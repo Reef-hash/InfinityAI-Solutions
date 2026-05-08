@@ -136,7 +136,21 @@ async def execute(data: UserInput, background_tasks: BackgroundTasks):
         if not json_str:
             return {"status": "error", "message": f"Claudia membalas tanpa JSON: {claudia_out[:100]}..."}
             
-        decision = json.loads(json_str)
+        try:
+            # Bersihkan JSON dari baris baru yang tidak sah dalam string
+            cleaned_json = json_str.replace('\n', '\\n').replace('\r', '\\r')
+            # Tetapi jangan tukar baris baru yang memisahkan elemen JSON (struktur)
+            # Ini adalah solusi ringkas, jika masih ralat kita guna pendekatan regex
+            decision = json.loads(json_str) 
+        except json.JSONDecodeError:
+            # Cuba cara agresif jika cara biasa gagal
+            try:
+                import re
+                # Cari string di antara " " dan tukar newline di dalamnya
+                fixed_json = re.sub(r'(?<=[:[,])\s*"(.*?)"', lambda m: m.group(0).replace('\n', '\\n'), json_str, flags=re.DOTALL)
+                decision = json.loads(fixed_json)
+            except:
+                return {"status": "error", "message": f"Ralat Struktur JSON: {json_str[:100]}..."}
         
         # Handle Rejection
         if decision.get("status") == "rejected":
