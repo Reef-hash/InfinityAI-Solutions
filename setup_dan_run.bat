@@ -28,7 +28,7 @@ echo.
 echo [3/3] Memulakan Server...
 echo.
 echo --------------------------------------------------
-echo  SERVER AKAN BERMULA DI: http://localhost:8000
+echo  SERVER AKAN BERMULA DI: http://localhost:7860
 echo  (Sila buka alamat ini di browser anda)
 echo --------------------------------------------------
 echo.

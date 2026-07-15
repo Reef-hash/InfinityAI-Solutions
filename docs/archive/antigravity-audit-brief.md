@@ -1,3 +1,5 @@
+> **[ARKIB]** Brief generik yang digunakan untuk menghasilkan [audit-report-2026-07.md](../development/audit-report-2026-07.md). Disimpan untuk rujukan/guna semula pada projek lain — bukan dokumentasi sistem ini.
+
 # ANTIGRAVITY TASK BRIEF
 ## Security, Testing & Production-Readiness Audit (Generik — Semua Webapp)
 

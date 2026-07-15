@@ -11,7 +11,7 @@ Sistem bekerja dengan prinsip "Manager-Worker". Seorang Manajer (Claudia) meneri
 *   **Backend**: FastAPI (Python)
 *   **AI Engine**: NVIDIA NIM API (Llama-3.1-70b / Kimi-k2.6)
 *   **Storage**: Google Drive via Google Apps Script (GAS)
-*   **Frontend**: HTML5/Tailwind CSS/JS (Single Page Application)
+*   **Frontend**: HTML/CSS/JS vanila, satu halaman (`index.html`) — rekaan "dokumen pejabat", rujuk [design system](../frontend/dashboard-design.md)
 
 ---
 
@@ -91,15 +91,9 @@ function doPost(e) {
 
 ## 6. Deployment (Docker & Hugging Face)
 
-File `Dockerfile` telah disediakan untuk deployment cepat. Sistem dikonfigurasi untuk berjalan di port `7860` secara default, sesuai dengan standar Hugging Face Spaces.
+Rujuk [Dockerfile](../../Dockerfile) di root repo (jangan duplikasi kandungannya di sini — fail tersebut adalah sumber rujukan tunggal). Ringkasnya: image `python:3.10-slim`, berjalan sebagai user bukan-root, dan dilancarkan dengan `uvicorn` di port `7860` (standard Hugging Face Spaces).
 
-```dockerfile
-FROM python:3.10
-WORKDIR /app
-COPY . .
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["python", "main.py"]
-```
+**Auto-deploy:** setiap push ke branch `main` akan di-sync secara automatik (force push) ke Hugging Face Spaces melalui GitHub Actions ([sync_to_hf.yml](../../.github/workflows/sync_to_hf.yml)). Berhati-hati: commit ke `main` = deploy ke production.
 
 ---
 
