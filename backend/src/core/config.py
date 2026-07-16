@@ -21,6 +21,18 @@ NVIDIA_API_KEY = os.getenv("NVIDIA_NIM_API_KEY")
 GAS_URL = os.getenv("GAS_WEB_APP_URL")
 LOG_FILE = "daily_log.json"
 
+# Environment & Admin Credentials Configuration
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+# Local development fallback
+if ENVIRONMENT != "production":
+    if not ADMIN_EMAIL:
+        ADMIN_EMAIL = "bos@infinityai.com"
+    if not ADMIN_PASSWORD:
+        ADMIN_PASSWORD = "password123"
+
 # Google Drive folder mappings for agents
 FOLDER_IDS = {
     "ZARA": os.getenv("ZARA_DRIVE_FOLDER_ID"),
@@ -63,6 +75,19 @@ logger.info(f"Frontend directory resolved to: {FRONTEND_DIR}")
 
 # Startup verification
 def verify_environment():
+    # Log dev mode warnings for credential fallbacks
+    if ENVIRONMENT == "production":
+        if not ADMIN_EMAIL or not ADMIN_PASSWORD:
+            raise RuntimeError(
+                "ADMIN_EMAIL dan ADMIN_PASSWORD wajib diset di .env — "
+                "sistem tidak akan start tanpa kelayakan admin yang sah."
+            )
+    else:
+        if not os.getenv("ADMIN_EMAIL"):
+            logger.warning("ADMIN_EMAIL tidak diset di .env. Menggunakan fallback: bos@infinityai.com")
+        if not os.getenv("ADMIN_PASSWORD"):
+            logger.warning("ADMIN_PASSWORD tidak diset di .env. Menggunakan fallback: password123")
+
     if not NVIDIA_API_KEY:
         logger.warning("NVIDIA_NIM_API_KEY tidak dikonfigurasikan dalam fail .env! Panggilan API ke model NVIDIA akan gagal.")
     if not GAS_URL:
