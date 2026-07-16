@@ -18,6 +18,10 @@
     <link rel="stylesheet" href="css/layout.css">
     <!-- Responsive utilities -->
     <link rel="stylesheet" href="css/responsive.css">
+    
+    <!-- PWA configuration -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#EFF2F0">
 </head>
 <body>
 <div class="sheet">
@@ -196,5 +200,14 @@
 <script src="js/auth.js"></script>
 <!-- Main entry point (last) -->
 <script src="js/main.js"></script>
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('Service Worker registered successfully:', reg.scope))
+                .catch(err => console.error('Service Worker registration failed:', err));
+        });
+    }
+</script>
 </body>
 </html>

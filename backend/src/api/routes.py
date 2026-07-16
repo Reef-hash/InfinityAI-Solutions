@@ -1,7 +1,7 @@
 import json
 import os
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Cookie, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from src.core.config import LOG_FILE, FRONTEND_DIR
 from src.schemas.models import UserInput, UserLogin
 from src.services.orchestrator import execute_task
@@ -102,4 +102,24 @@ async def execute(data: UserInput, background_tasks: BackgroundTasks, session_to
         raise HTTPException(status_code=401, detail="Sesi tamat. Sila log masuk semula.")
         
     return await execute_task(data, background_tasks)
+
+
+@router.get("/manifest.json")
+async def manifest():
+    """Serve manifest.json for PWA"""
+    return FileResponse(
+        os.path.join(FRONTEND_DIR, "manifest.json"),
+        media_type="application/json"
+    )
+
+
+@router.get("/sw.js")
+async def service_worker():
+    """Serve sw.js for PWA"""
+    return FileResponse(
+        os.path.join(FRONTEND_DIR, "sw.js"),
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/"}
+    )
+
 

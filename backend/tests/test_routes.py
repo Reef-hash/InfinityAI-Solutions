@@ -72,3 +72,18 @@ def test_api_me_route():
     assert data["user"]["email"] == "bos@infinityai.com"
     assert data["user"]["name"] == "Bos"
 
+def test_pwa_manifest():
+    response = client.get("/manifest.json")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/json"
+    data = response.json()
+    assert data["short_name"] == "InfinityAI"
+
+def test_pwa_sw():
+    response = client.get("/sw.js")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/javascript"
+    assert response.headers["service-worker-allowed"] == "/"
+    assert "CACHE_NAME" in response.text
+
+
