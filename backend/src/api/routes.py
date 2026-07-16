@@ -1,17 +1,46 @@
 import json
 import os
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Cookie, Response
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Cookie, Response, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from src.core.config import LOG_FILE, FRONTEND_DIR
+from src.core import config
 from src.schemas.models import UserInput, UserLogin
 from src.services.orchestrator import execute_task
 from src.core.sessions import verify_session, create_session, destroy_session
 
 router = APIRouter()
 
-# Read credentials from env (with secure fallbacks)
-ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "bos@infinityai.com")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "password123")
+# Rate limiter configuration & helper functions
+from datetime import datetime, timedelta
+import hmac
+
+login_attempts = {} # { ip: [timestamp1, timestamp2, ...] }
+
+def get_client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip.strip()
+    return request.client.host if request.client else "unknown"
+
+def check_rate_limit(ip_address: str):
+    now = datetime.now()
+    attempts = login_attempts.get(ip_address, [])
+    attempts = [t for t in attempts if now - t < timedelta(minutes=15)]
+    login_attempts[ip_address] = attempts
+    
+    if len(attempts) >= 5:
+        raise HTTPException(
+            status_code=429,
+            detail="Terlalu banyak percubaan log masuk. Sila cuba lagi selepas 15 minit."
+        )
+
+def record_login_attempt(ip_address: str):
+    if ip_address not in login_attempts:
+        login_attempts[ip_address] = []
+    login_attempts[ip_address].append(datetime.now())
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -35,16 +64,21 @@ async def login_page(session_token: str | None = Cookie(None)):
 
 
 @router.post("/api/login")
-async def api_login(data: UserLogin, response: Response):
+async def api_login(data: UserLogin, response: Response, request: Request):
     """Authenticate user and set secure httpOnly cookie"""
-    if data.email == ADMIN_EMAIL and data.password == ADMIN_PASSWORD:
+    client_ip = get_client_ip(request)
+    check_rate_limit(client_ip)
+    
+    # Timing-attack safe credential comparison
+    if hmac.compare_digest(data.email, config.ADMIN_EMAIL) and hmac.compare_digest(data.password, config.ADMIN_PASSWORD):
         token = create_session()
+        IS_PRODUCTION = config.ENVIRONMENT == "production"
         response.set_cookie(
             key="session_token",
             value=token,
             httponly=True,
             samesite="lax",
-            secure=False  # Set to True if using HTTPS in prod
+            secure=IS_PRODUCTION
         )
         return {
             "status": "success",
@@ -54,6 +88,7 @@ async def api_login(data: UserLogin, response: Response):
             }
         }
     
+    record_login_attempt(client_ip)
     raise HTTPException(
         status_code=401,
         detail="E-mel atau kata laluan salah. Sila cuba lagi."
@@ -76,7 +111,7 @@ async def api_me(session_token: str | None = Cookie(None)):
     return {
         "status": "success",
         "user": {
-            "email": ADMIN_EMAIL,
+            "email": config.ADMIN_EMAIL,
             "name": "Bos"
         }
     }

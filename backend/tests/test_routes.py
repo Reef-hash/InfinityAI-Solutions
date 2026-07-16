@@ -86,4 +86,46 @@ def test_pwa_sw():
     assert response.headers["service-worker-allowed"] == "/"
     assert "CACHE_NAME" in response.text
 
+def test_secure_cookie_in_production(monkeypatch):
+    import src.core.config
+    monkeypatch.setattr(src.core.config, "ENVIRONMENT", "production")
+    
+    # Reset attempts count before test
+    import src.api.routes
+    src.api.routes.login_attempts = {}
+    
+    response = client.post("/api/login", json={"email": "bos@infinityai.com", "password": "password123"})
+    assert response.status_code == 200
+    
+    set_cookie = response.headers.get("set-cookie")
+    assert "secure" in set_cookie.lower()
+
+def test_login_rate_limiting():
+    import src.api.routes
+    src.api.routes.login_attempts = {}
+    
+    # Make 5 failed attempts
+    for _ in range(5):
+        response = client.post("/api/login", json={"email": "wrong@email.com", "password": "wrongpassword"})
+        assert response.status_code == 401
+        
+    # The 6th attempt should return 429
+    response = client.post("/api/login", json={"email": "wrong@email.com", "password": "wrongpassword"})
+    assert response.status_code == 429
+    assert "Terlalu banyak" in response.json()["detail"]
+    
+    # Reset for other tests
+    src.api.routes.login_attempts = {}
+
+def test_login_fails_without_env_credentials(monkeypatch):
+    import src.core.config
+    monkeypatch.setattr(src.core.config, "ENVIRONMENT", "production")
+    monkeypatch.setattr(src.core.config, "ADMIN_EMAIL", None)
+    monkeypatch.setattr(src.core.config, "ADMIN_PASSWORD", None)
+    
+    with pytest.raises(RuntimeError) as excinfo:
+        src.core.config.verify_environment()
+    assert "ADMIN_EMAIL dan ADMIN_PASSWORD wajib diset" in str(excinfo.value)
+
+
 
