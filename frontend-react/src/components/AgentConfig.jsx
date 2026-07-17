@@ -121,7 +121,7 @@ export default function AgentConfig({ t }) {
       <div className="glass-card lg:col-span-2 p-5 space-y-4">
         <div className="flex items-center justify-between border-b border-card-border pb-3">
           <div>
-            <h3 className="text-base font-semibold">Konfigurasi Ejen: {selectedAgent.capitalize()}</h3>
+            <h3 className="text-base font-semibold">Konfigurasi Ejen: {selectedAgent.charAt(0).toUpperCase() + selectedAgent.slice(1).toLowerCase()}</h3>
             <p className="text-xs text-text-muted">Edit tingkah laku, arahan personaliti dan penetapan enjin AI.</p>
           </div>
           
