@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Check, X, ShieldAlert, Sparkles, User, Calendar, ExternalLink } from 'lucide-react';
+import { FileText, Check, X, ShieldAlert, Sparkles, User, Calendar, ExternalLink, CheckCircle } from 'lucide-react';
 import { fetchQuotations, fetchApproveQuotation } from '../api';
 
 export default function QuotationsList() {
