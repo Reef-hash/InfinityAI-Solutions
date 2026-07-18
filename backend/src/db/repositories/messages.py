@@ -1,4 +1,5 @@
 from typing import Optional
+from postgrest.exceptions import APIError
 from src.db.client import get_supabase
 
 
@@ -10,14 +11,13 @@ class MessageRepo:
                body: Optional[str] = None, media_url: Optional[str] = None,
                external_id: Optional[str] = None, channel_id: Optional[str] = None) -> dict:
         if not channel_id and conversation_id:
-            conv = (
+            conv = self._exec(
                 self._db.table("conversations")
                 .select("channel_id")
                 .eq("id", conversation_id)
                 .maybe_single()
-                .execute()
             )
-            if conv.data:
+            if conv and conv.data:
                 channel_id = conv.data["channel_id"]
 
         data = {
@@ -32,32 +32,37 @@ class MessageRepo:
         if channel_id:
             data["channel_id"] = channel_id
 
-        result = (
+        result = self._exec(
             self._db.table("messages")
             .upsert(data, on_conflict="channel_id,external_id")
-            .execute()
         )
-        return result.data[0]
+        return result.data[0] if result and result.data else data
 
     def get_by_external_id(self, channel_id: str, external_id: str) -> Optional[dict]:
-        result = (
+        result = self._exec(
             self._db.table("messages")
             .select("*")
             .eq("channel_id", channel_id)
             .eq("external_id", external_id)
             .maybe_single()
-            .execute()
         )
-        return result.data
+        return result.data if result else None
 
     def list_by_conversation(self, org_id: str, conversation_id: str, limit: int = 20) -> list[dict]:
-        result = (
+        result = self._exec(
             self._db.table("messages")
             .select("*")
             .eq("org_id", org_id)
             .eq("conversation_id", conversation_id)
             .order("created_at", desc=True)
             .limit(limit)
-            .execute()
         )
-        return list(reversed(result.data))
+        return list(reversed(result.data)) if result and result.data else []
+
+    def _exec(self, query):
+        try:
+            return query.execute()
+        except APIError as e:
+            if e.code == "204":
+                return None
+            raise
