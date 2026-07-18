@@ -9,10 +9,11 @@ from src.ai.agents.registry import load_agent, load_agents
 from src.core.constants import AGENTS, SPECIALIST_AGENTS
 
 
-def test_load_agents_returns_all_eight():
+def test_load_agents_returns_all_agents():
     configs = load_agents()
     assert set(configs.keys()) == set(AGENTS.keys())
-    assert len(configs) == 8
+    # 8 original specialists + CLAUDIA (router) + NEXUS (generalist) = 9.
+    assert len(configs) == len(AGENTS)
 
 
 def test_load_agents_defaults_to_openai_provider():
@@ -47,4 +48,6 @@ def test_specialist_agents_excludes_claudia():
     configs = load_agents()
     specialist_configs = {k: v for k, v in configs.items() if k in SPECIALIST_AGENTS}
     assert "CLAUDIA" not in specialist_configs
-    assert len(specialist_configs) == 7
+    # Specialists = all 7 originals + NEXUS (the generalist fallback that
+    # TaskExecutionFlow can route to). Total is len(AGENTS) - 1 (no Claudia).
+    assert len(specialist_configs) == len(AGENTS) - 1

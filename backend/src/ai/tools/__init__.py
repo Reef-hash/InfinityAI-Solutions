@@ -34,6 +34,10 @@ from .db_tools import (
     db_save_message_tool,
     db_list_channels_tool,
 )
+from .business_profile import (
+    db_get_business_profile_tool,
+    db_update_business_profile_tool,
+)
 from .workflow_tools import (
     workflow_trigger_inbound_reply_tool,
     workflow_generate_quotation_tool,
@@ -65,6 +69,9 @@ __all__ = [
     "db_create_conversation_tool",
     "db_save_message_tool",
     "db_list_channels_tool",
+    # Business profile tools
+    "db_get_business_profile_tool",
+    "db_update_business_profile_tool",
     # Workflow tools
     "workflow_trigger_inbound_reply_tool",
     "workflow_generate_quotation_tool",

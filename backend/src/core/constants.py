@@ -32,11 +32,15 @@ AGENTS = {
     "DANISH": {"name": "Danish", "role": "Kandungan Kreatif", "folder_key": "DANISH"},
     "AIMAN": {"name": "Aiman", "role": "Pemasaran", "folder_key": "AIMAN"},
     "ADILA": {"name": "Adila", "role": "Operasi", "folder_key": "ADILA"},
-    "HAKIM": {"name": "Hakim", "role": "Arkitek Sistem", "folder_key": "HAKIM"}
+    "HAKIM": {"name": "Hakim", "role": "Arkitek Sistem", "folder_key": "HAKIM"},
+    "NEXUS": {"name": "Nexus", "role": "Generalist (Semua Alat)", "folder_key": None},
 }
 
-# Specialist agents (exclude Claudia)
-SPECIALIST_AGENTS = [key for key in AGENTS.keys() if key != "CLAUDIA"]
+# Specialist agents (exclude Claudia — the router). NEXUS is a generalist
+# fallback that gets assigned when no specific specialist matches, OR when
+# the request needs capabilities (browser / MCP / cross-domain) that no
+# single specialist owns.
+SPECIALIST_AGENTS = [key for key in AGENTS.keys() if key not in ("CLAUDIA",)]
 
 # Supported LLM models
 MODEL_OPTIONS = [

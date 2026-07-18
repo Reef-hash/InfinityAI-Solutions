@@ -9,9 +9,10 @@ Three sources of tools, merged per agent:
 2. **Browser** — Playwright-based tools in `src/ai/browser/tools.py`.
    Only attached to agents that need to drive a browser (Hakim for system
    inspection, Danish/Aiman for web research, Amelia for content
-   research). Loaded only if Playwright is installed; otherwise silently
-   skipped. Subset is controlled by `BROWSER_TOOL_AGENTS` /
-   `BROWSER_TOOL_NAMES` below — not every agent gets every browser tool.
+   research, and NEXUS as the generalist fallback). Loaded only if
+   Playwright is installed; otherwise silently skipped. Subset is
+   controlled by `_BROWSER_TOOL_AGENTS` / `_BROWSER_TOOL_NAMES_BY_AGENT`
+   below — not every agent gets every browser tool.
 
 3. **MCP** — external MCP server tools, loaded once at startup and
    attached globally to every agent (they are agent-agnostic capabilities
@@ -21,6 +22,11 @@ Three sources of tools, merged per agent:
 file is the single source of truth that `build_crewai_agent()` reads and
 wires into `crewai.Agent(tools=...)`. For image-capable agents, the image
 tool is appended on top when a run supplies an `artifact_collector`.
+
+NEXUS is the generalist fallback: `get_tools("NEXUS")` returns the union
+of every static tool (deduplicated), the full browser set, MCP, and image
+generation when an artifact_collector is supplied. Claudia routes to
+NEXUS for multi-domain, vague, or capability-mismatch requests.
 """
 
 import logging
@@ -49,6 +55,9 @@ from src.ai.tools import (
     db_create_conversation_tool,
     db_save_message_tool,
     db_list_channels_tool,
+    # Business profile tools
+    db_get_business_profile_tool,
+    db_update_business_profile_tool,
     # Workflow tools
     workflow_trigger_inbound_reply_tool,
     workflow_generate_quotation_tool,
@@ -62,21 +71,21 @@ logger = logging.getLogger("ai_command_center")
 
 
 # Agents that get an image-generation tool when a run supplies an artifact
-# collector (see backend/src/ai/tools/image_generation.py). Danish only —
-# he's InfinityAI's Kreatif specialist (banners, posters, visual content).
-IMAGE_CAPABLE_AGENTS = {"DANISH"}
+# collector (see backend/src/ai/tools/image_generation.py). Danish and NEXUS
+# (NEXUS gets it because it's the generalist).
+IMAGE_CAPABLE_AGENTS = {"DANISH", "NEXUS"}
 
 
 # Agents that get any browser tools at all. Each gets a *subset* (see
-# `_BROWSER_TOOL_NAMES_BY_AGENT`); Hakim gets the full set since his job
-# is to drive the platform UI to verify behaviour.
-_BROWSER_TOOL_AGENTS = {"HAKIM", "DANISH", "AIMAN", "AMELIA"}
+# `_BROWSER_TOOL_NAMES_BY_AGENT`); Hakim and NEXUS get the full set.
+_BROWSER_TOOL_AGENTS = {"HAKIM", "DANISH", "AIMAN", "AMELIA", "NEXUS"}
 
 
 # Per-agent browser-tool subset. Agents not listed here get no browser tools.
-# "all" is shorthand for "every loaded browser tool" (used by Hakim).
+# "all" is shorthand for "every loaded browser tool" (used by Hakim + NEXUS).
 _BROWSER_TOOL_NAMES_BY_AGENT: dict[str, set[str] | str] = {
     "HAKIM": "all",
+    "NEXUS": "all",
     "DANISH": {"Browser Navigate", "Browser Extract Text", "Browser Get UI State", "Browser Screenshot"},
     "AIMAN": {"Browser Navigate", "Browser Extract Text", "Browser Screenshot"},
     "AMELIA": {"Browser Navigate", "Browser Extract Text"},
@@ -137,15 +146,48 @@ STATIC_TOOL_MAPPINGS: dict[str, list] = {
     "AMELIA": [],
 
     # Adila: Operations. Pipeline summary, briefing trigger, generic job
-    # scheduler, and conversation/lead reads for ops triage.
+    # scheduler, conversation/lead reads, AND business profile
+    # read/write (sole owner of the business profile tools).
     "ADILA": [
         workflow_lead_pipeline_summary_tool,
         workflow_trigger_daily_briefing_tool,
         workflow_schedule_job_tool,
         db_list_open_conversations_tool,
         db_list_leads_tool,
+        db_get_business_profile_tool,
+        db_update_business_profile_tool,
     ],
+
+    # NEXUS: Generalist fallback. Starts empty — `get_tools("NEXUS")` builds
+    # the union of every static tool (deduplicated), plus full browser
+    # set, MCP, and image-gen (when collector supplied). Keep this list
+    # empty unless you want NEXUS to have a non-union tool that no other
+    # agent has.
+    "NEXUS": [],
 }
+
+
+# NEXUS sees the union of every static tool across all agents (plus its
+# own). Computed once at module load.
+def _all_static_tools() -> list:
+    """Union (deduplicated, order-preserving) of every tool in
+    STATIC_TOOL_MAPPINGS except NEXUS's own list (which is empty by
+    convention but included for safety)."""
+    seen: set = set()
+    union: list = []
+    for agent_key, tools in STATIC_TOOL_MAPPINGS.items():
+        if agent_key == "NEXUS":
+            continue
+        for t in tools:
+            if id(t) in seen:
+                continue
+            seen.add(id(t))
+            union.append(t)
+    return union
+
+
+# Per-agent static tool list returned for NEXUS — see `get_tools()`.
+_NEXUS_STATIC_TOOLS: list = _all_static_tools()
 
 
 @lru_cache(maxsize=1)
@@ -215,6 +257,7 @@ def get_tools(agent_key: str, artifact_collector: list[dict] | None = None) -> l
     """Resolve the full tool list for an agent:
 
     1. Static tools from `STATIC_TOOL_MAPPINGS` (curated per role).
+       NEXUS gets the union of every other agent's static list.
     2. Browser tools filtered to the agent's allowed subset.
     3. Image-generation tool (image-capable agents only, only when an
        `artifact_collector` is supplied — no collector, no tool, since
@@ -227,7 +270,10 @@ def get_tools(agent_key: str, artifact_collector: list[dict] | None = None) -> l
     `_BROWSER_TOOL_NAMES_BY_AGENT`. No call-site changes anywhere else.
     """
     key = agent_key.upper()
-    tools = list(STATIC_TOOL_MAPPINGS.get(key, []))
+    if key == "NEXUS":
+        tools = list(_NEXUS_STATIC_TOOLS)
+    else:
+        tools = list(STATIC_TOOL_MAPPINGS.get(key, []))
     tools.extend(_browser_tools_for(key))
     if key in IMAGE_CAPABLE_AGENTS and artifact_collector is not None:
         tools.append(build_image_generation_tool(artifact_collector))
